@@ -58,6 +58,15 @@ contract DustToken is ERC20, Ownable {
         mainPair = _swapPair;
         feeExcluded[owner()] = true;
 
+        liqFeeBuy = 300;
+        liqFeeSell = 200;
+        bnbFee = 800;
+        marketingFee = 100;
+        devFee = 100;
+
+        devAddress = msg.sender;
+        marketingAddress = msg.sender;
+
         dividendToken = new BNBDividendTracker();
         dividendToken.excludeFromDividends(_swapPair);
         dividendToken.excludeFromDividends(address(dividendToken));
