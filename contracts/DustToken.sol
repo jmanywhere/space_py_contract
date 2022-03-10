@@ -4,6 +4,7 @@ pragma solidity 0.8.12;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/IUniswapV2Router02.sol";
+import "./BnbDividendTracker.sol";
 
 contract DustToken is ERC20, Ownable {
     // Fee Percentages
@@ -23,8 +24,11 @@ contract DustToken is ERC20, Ownable {
     bool public swapping;
     address public devAddress;
     address public marketingAddress;
+    address public constant deadWallet =
+        0x000000000000000000000000000000000000dEaD;
     // Router
     IUniswapV2Router02 public uniswapV2Router;
+    BNBDividendTracker public dividendToken;
 
     mapping(address => bool) public isPair;
     mapping(address => bool) public feeExcluded;
@@ -42,7 +46,14 @@ contract DustToken is ERC20, Ownable {
     event UpdateMarketing(address _new, address _old);
 
     constructor() ERC20("Spacedust Bnb", "DUST") {
-        _mint(msg.sender, 100 ether);
+        dividendToken = new BNBDividendTracker();
+
+        dividendToken.excludeFromDividends(address(dividendToken));
+        dividendToken.excludeFromDividends(owner());
+        dividendToken.excludeFromDividends(deadWallet);
+        dividendToken.excludeFromDividends(address(this));
+        dividendToken.excludeFromDividends(address(uniswapV2Router));
+        _mint(msg.sender, 100000000000 ether); // 100 BILLION ETHER TO OWNER
     }
 
     function _beforeTokenTransfer(
@@ -96,6 +107,7 @@ contract DustToken is ERC20, Ownable {
     function addPair(address _pairAddress) external onlyOwner {
         require(!isPair[_pairAddress], "Already added");
         isPair[_pairAddress] = true;
+        dividendToken.excludeFromDividends(_pairAddress);
         emit AddedPair(_pairAddress);
     }
 
@@ -145,28 +157,43 @@ contract DustToken is ERC20, Ownable {
         uint256 liqOtherHalf = liqAmount - half;
         swapForEth(currentBalance - liqOtherHalf);
         uint256 ethBalance = address(this).balance;
+        bool txSuccess = false;
         uint256[4] memory balances = getPercentages(
             [bnb, half, marketingAmount, devAmount],
             currentBalance - liqOtherHalf,
             ethBalance
         );
         //sendToDividends( balances[0]);
-        ethBalance -= balances[0];
+        if (balances[0] > 0) {
+            (txSuccess, ) = payable(address(dividendToken)).call{
+                value: balances[0]
+            }("");
+            if (txSuccess) {
+                ethBalance -= balances[0];
+                txSuccess = false;
+            }
+        }
         //makeLiquidity(balances[1]);
-        ethBalance -= balances[1];
-        liqAmount = 0;
+        if (balances[1] > 0) {
+            addLiquidity(balances[1], liqOtherHalf);
+            ethBalance -= balances[1];
+            liqAmount = 0;
+        }
         // MarketingFunds Transfer
         if (balances[2] > 0) {
-            (bool success, ) = payable(marketingAddress).call{
-                value: balances[2]
-            }("");
-            if (success) marketingAmount = 0;
-            ethBalance -= balances[2];
+            (txSuccess, ) = payable(marketingAddress).call{value: balances[2]}(
+                ""
+            );
+            if (txSuccess) {
+                marketingAmount = 0;
+                ethBalance -= balances[2];
+                txSuccess = false;
+            }
         }
         // DevFunds Transfer
         if (balances[3] > 0) {
-            (bool success, ) = payable(devAddress).call{value: ethBalance}("");
-            if (success) {
+            (txSuccess, ) = payable(devAddress).call{value: ethBalance}("");
+            if (txSuccess) {
                 devAmount = 0;
             }
         }
@@ -223,5 +250,26 @@ contract DustToken is ERC20, Ownable {
         require(_marketingWallet != address(0), "use Marketing");
         emit UpdateMarketing(_marketingWallet, marketingAddress);
         marketingAddress = _marketingWallet;
+    }
+
+    function addLiquidity(uint256 ethAmount, uint256 tokenAmount) private {
+        _approve(address(this), address(uniswapV2Router), tokenAmount);
+        uniswapV2Router.addLiquidityETH{value: ethAmount}(
+            address(this),
+            tokenAmount,
+            0, //whatever slippage dictates
+            0, //whatever slippage dictates
+            address(0), // "burn" immediately
+            block.timestamp
+        );
+    }
+
+    function setDevAddress(address payable _devAddress) external onlyOwner {
+        require(_devAddress != address(0), "Pay the dev please");
+        devAddress = _devAddress;
+    }
+
+    function claim() external {
+        dividendToken.processAccount(payable(msg.sender), false);
     }
 }
