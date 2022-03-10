@@ -56,6 +56,8 @@ contract DividendPayingToken is
         }
     }
 
+    receive() external payable {}
+
     /// @notice Withdraws the ether distributed to the sender.
     /// @dev It emits a `DividendWithdrawn` event if the amount of withdrawn ether is greater than 0.
     function withdrawDividend() public virtual override {
