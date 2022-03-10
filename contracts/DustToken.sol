@@ -83,6 +83,34 @@ contract DustToken is ERC20, Ownable {
         }
     }
 
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override {
+        try dividendToken.setBalance(payable(from), balanceOf(from)) {} catch {}
+        try dividendToken.setBalance(payable(to), balanceOf(to)) {} catch {}
+
+        if (!swapping) {
+            uint256 gas = gasForProcessing;
+
+            try dividendToken.process(gas) returns (
+                uint256 iterations,
+                uint256 claims,
+                uint256 lastProcessedIndex
+            ) {
+                emit ProcessedDividendTracker(
+                    iterations,
+                    claims,
+                    lastProcessedIndex,
+                    true,
+                    gas,
+                    tx.origin
+                );
+            } catch {}
+        }
+    }
+
     function _transfer(
         address from,
         address to,
