@@ -4,7 +4,7 @@ from web3 import Web3
 import pytest
 
 # Testing DustToken.sol
-# FUNCTIONS CHANGED FROM PRIVATE TO PUBLIC FOR THESE TESTS
+# @dev FUNCTIONS CHANGED FROM PRIVATE TO PUBLIC FOR THESE TESTS
 # PLEASE CHANGE THE FOLLOWING FUNCTIONS BACK
 # #1 swapForEth
 # #2 getPercentages
@@ -37,10 +37,22 @@ def test_swapForEth(token, pair, router):
 
 
 def test_getPercentages(token, pair, router):
-    return True
+    # Setting up
+    percentages = [10, 25, 50, 100]
+    multiplier = 1
+    base = 100
+
+    # Testing percentages
+    result = token.getPercentages(percentages, multiplier, base, {"from": minter})
+    assert result == [0.1, 0.25, 0.5, 1]
 
 
 def test_swapRewardsAndDistribute(token, pair, router):
+    # Setting up
+    currentBalance = 100
+
+    # Using _transfer to get liqAmount, marketingAmount, devAmount
+    
 
     return True
 

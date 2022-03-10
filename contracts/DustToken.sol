@@ -288,7 +288,7 @@ contract DustToken is ERC20, Ownable {
         uint256[4] memory percentages,
         uint256 base,
         uint256 multiplier
-    ) private pure returns (uint256[4] memory _finalValues) {
+    ) public pure returns (uint256[4] memory _finalValues) {
         for (uint8 i = 0; i < percentages.length; i++) {
             _finalValues[i] = (percentages[i] * multiplier) / base;
         }
