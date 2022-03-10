@@ -4,6 +4,7 @@ pragma solidity 0.8.12;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/IUniswapV2Router02.sol";
+import "../interfaces/IUniswapV2Factory.sol";
 import "./BnbDividendTracker.sol";
 
 contract DustToken is ERC20, Ownable {
@@ -29,10 +30,10 @@ contract DustToken is ERC20, Ownable {
     // Router
     IUniswapV2Router02 public uniswapV2Router;
     BNBDividendTracker public dividendToken;
+    address public mainPair;
 
     mapping(address => bool) public isPair;
     mapping(address => bool) public feeExcluded;
-    mapping(address => bool) public rewardExcluded;
 
     event LogEvent(string data);
     event AddedPair(address indexed _pair);
@@ -46,12 +47,24 @@ contract DustToken is ERC20, Ownable {
     event UpdateMarketing(address _new, address _old);
 
     constructor() ERC20("Spacedust Bnb", "DUST") {
-        dividendToken = new BNBDividendTracker();
+        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(
+            0x05E61E0cDcD2170a76F9568a110CEe3AFdD6c46f
+        );
+        address _swapPair = IUniswapV2Factory(_uniswapV2Router.factory())
+            .createPair(address(this), _uniswapV2Router.WETH());
+        uniswapV2Router = _uniswapV2Router;
 
+        isPair[_swapPair] = true;
+        mainPair = _swapPair;
+        feeExcluded[owner()] = true;
+
+        dividendToken = new BNBDividendTracker();
+        dividendToken.excludeFromDividends(_swapPair);
         dividendToken.excludeFromDividends(address(dividendToken));
         dividendToken.excludeFromDividends(owner());
         dividendToken.excludeFromDividends(deadWallet);
         dividendToken.excludeFromDividends(address(this));
+        dividendToken.excludeFromDividends(address(0));
         dividendToken.excludeFromDividends(address(uniswapV2Router));
         _mint(msg.sender, 100000000000 ether); // 100 BILLION ETHER TO OWNER
     }
@@ -83,6 +96,8 @@ contract DustToken is ERC20, Ownable {
         uint256 rewardFee;
         uint256 marketing;
         uint256 dev;
+        // TRY TO TAX ONLY SELLS AND BUYS THIS ALSO TAXES ADDING LIQUIDITY UNFORTUNATELY.
+        // THERE'S NO WAY AROUND THIS UNLESS LIQUIDITY IS ADDED MANUALLY (NOT RECOMMENDED)
         if (!feeExcluded[from] && !swapping) {
             // BUY
             if (isPair[from])
@@ -92,14 +107,16 @@ contract DustToken is ERC20, Ownable {
                 (amount, liquidityFee, rewardFee, marketing, dev) = taxSell(
                     amount
                 );
-            super._transfer(
-                from,
-                address(this),
-                liquidityFee + rewardFee + marketing + dev
-            );
-            liqAmount += liquidityFee;
-            marketingAmount += marketing;
-            devAmount += dev;
+            if (liquidityFee + rewardFee + marketing + dev > 0) {
+                super._transfer(
+                    from,
+                    address(this),
+                    liquidityFee + rewardFee + marketing + dev
+                );
+                liqAmount += liquidityFee;
+                marketingAmount += marketing;
+                devAmount += dev;
+            }
         }
         super._transfer(from, to, amount);
     }
@@ -272,4 +289,6 @@ contract DustToken is ERC20, Ownable {
     function claim() external {
         dividendToken.processAccount(payable(msg.sender), false);
     }
+
+    function excludeFromFee(address _account) external onlyOwner {}
 }

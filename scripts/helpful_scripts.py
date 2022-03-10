@@ -2,4 +2,4 @@ from brownie import network
 
 
 def isDevNetwork():
-    return network.show_active() == "development"
+    return network.show_active() in ["development"]
