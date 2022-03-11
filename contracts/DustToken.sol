@@ -237,7 +237,7 @@ contract DustToken is ERC20, Ownable {
     }
 
     //PLEASE CHANGE BACK TO PRIVATE#3
-    function swapRewardsAndDistribute(uint256 currentBalance) public {
+    function swapRewardsAndDistribute(uint256 currentBalance) private {
         uint256 bnb = currentBalance - liqAmount - marketingAmount - devAmount;
         uint256 half = liqAmount / 2;
         uint256 liqOtherHalf = liqAmount - half;
@@ -287,7 +287,7 @@ contract DustToken is ERC20, Ownable {
     }
 
     //PLEASE CHANGE BACK TO PRIVATE#1
-    function swapForEth(uint256 amount) public {
+    function swapForEth(uint256 amount) private {
         address[] memory path = new address[](2);
         path[0] = address(this);
         path[1] = uniswapV2Router.WETH();
@@ -309,7 +309,7 @@ contract DustToken is ERC20, Ownable {
         uint256[4] memory percentages,
         uint256 base,
         uint256 multiplier
-    ) public pure returns (uint256[4] memory _finalValues) {
+    ) private pure returns (uint256[4] memory _finalValues) {
         for (uint8 i = 0; i < percentages.length; i++) {
             _finalValues[i] = (percentages[i] * multiplier) / base;
         }
