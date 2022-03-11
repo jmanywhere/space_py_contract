@@ -92,13 +92,23 @@ def main():
 
         print(f"Acc1 init {ac1_eth_bal} final {accounts[1].balance()}")
         # SELL
-        amounts2 = router.swapExactTokensForETH(
+        dust.approve(
+            dust.uniswapV2Router(),
+            Web3.toWei("100000000000", "ether"),
+            {"from": accounts[4]},
+        )
+        amounts2 = router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            Web3.toWei("2000000", "ether"),
             0,
             [dust.address, bnb_eth],
             accounts[1],
             int((datetime.now() - datetime(1970, 1, 1)).total_seconds()) + 6000000000,
-            {"from": accounts[1], "value": Web3.toWei("0.1", "ether")},
+            {"from": accounts[4]},
         )
+        amounts2.wait(1)
+        print(f"Acc1 final {accounts[1].balance()}")
+        print(f"Acc2 final {accounts[2].balance()}")
+
         # CHECK TAX
         # add liquidity
         # remove liquidity
