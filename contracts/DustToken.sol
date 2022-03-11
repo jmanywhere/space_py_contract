@@ -36,9 +36,19 @@ contract DustToken is ERC20, Ownable {
 
     mapping(address => bool) public isPair;
     mapping(address => bool) public feeExcluded;
+    mapping(address => bool) public blacklist;
 
     event LogEvent(string data);
     event AddedPair(address indexed _pair);
+
+    event ExcludeFromFees(address indexed account, bool isExcluded);
+    event ExcludeMultipleAccountsFromFees(address[] accounts, bool isExcluded);
+
+    event GasForProcessingUpdated(
+        uint256 indexed newValue,
+        uint256 indexed oldValue
+    );
+
     event UpdatedFees(
         uint256 _bnb,
         uint256 _liqSell,
@@ -356,27 +366,27 @@ contract DustToken is ERC20, Ownable {
     /// @param newAddress New dividend tracker address
     function updateDividendTracker(address newAddress) public onlyOwner {
         require(
-            newAddress != address(dividendTracker),
+            newAddress != address(dividendToken),
             "DustToken: The dividend tracker already has that address"
         );
 
-        BNBDividendTracker newDividendTracker = BNBDividendTracker(
+        BNBDividendTracker newDividendToken = BNBDividendTracker(
             payable(newAddress)
         );
 
         require(
-            newDividendTracker.owner() == address(this),
+            newDividendToken.owner() == address(this),
             "DustToken: The new dividend tracker must be owned by the deployer of the contract"
         );
 
-        newDividendTracker.excludeFromDividends(address(newDividendTracker));
-        newDividendTracker.excludeFromDividends(address(this));
-        newDividendTracker.excludeFromDividends(owner());
-        newDividendTracker.excludeFromDividends(address(uniswapV2Router));
+        newDividendToken.excludeFromDividends(address(newDividendToken));
+        newDividendToken.excludeFromDividends(address(this));
+        newDividendToken.excludeFromDividends(owner());
+        newDividendToken.excludeFromDividends(address(uniswapV2Router));
 
-        emit UpdateDividendTracker(newAddress, address(dividendTracker));
+        emit UpdateDividendTracker(newAddress, address(dividendToken));
 
-        dividendTracker = newDividendTracker;
+        dividendToken = newDividendToken;
     }
 
     /// @notice Updates the uniswapV2Router's address
@@ -390,28 +400,79 @@ contract DustToken is ERC20, Ownable {
         uniswapV2Router = IUniswapV2Router02(newAddress);
         address _uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory())
             .createPair(address(this), uniswapV2Router.WETH());
-        uniswapV2Pair = _uniswapV2Pair;
+        mainPair = _uniswapV2Pair;
     }
 
     /// @notice Excludes address from fees
-    /// @param newAddress New uniswapV2Router's address
+    /// @param account New uniswapV2Router's address
+    /// @param excluded True if excluded
     function excludeFromFees(address account, bool excluded) public onlyOwner {
         require(
-            _isExcludedFromFees[account] != excluded,
+            feeExcluded[account] != excluded,
             "DustToken: Account is already the value of 'excluded'"
         );
-        _isExcludedFromFees[account] = excluded;
+        feeExcluded[account] = excluded;
 
         emit ExcludeFromFees(account, excluded);
     }
 
-    // function excludeMultipleAccountsFromFees(address[] calldata accounts, bool excluded) public onlyOwner
-    // function blacklistAddress(address account, bool value) external onlyOwner
-    // function updateGasForProcessing(uint256 newValue) public onlyOwner **
-    // function updateClaimWait(uint256 claimWait) external onlyOwner*
-    // function isExcludedFromFees(address account) public view returns(bool)
-    // function withdrawableDividendOf(address account) public view returns(uint256)
-    function excludeFromFee(address _account) external onlyOwner {}
+    /// @notice Excludes multiple accounts from fees
+    /// @param accounts Array of accounts to be excluded
+    /// @param excluded True if excluded
+    function excludeMultipleAccountsFromFees(
+        address[] calldata accounts,
+        bool excluded
+    ) public onlyOwner {
+        for (uint256 i = 0; i < accounts.length; i++) {
+            feeExcluded[accounts[i]] = excluded;
+        }
+
+        emit ExcludeMultipleAccountsFromFees(accounts, excluded);
+    }
+
+    /// @notice Includes address in the blacklist
+    /// @param account Array of accounts to be excluded
+    /// @param value True if excluded
+    function blacklistAddress(address account, bool value) external onlyOwner {
+        blacklist[account] = value;
+    }
+
+    /// @notice Updates gas amount for processing
+    /// @param newValue New gas value
+    function updateGasForProcessing(uint256 newValue) public onlyOwner {
+        require(
+            newValue >= 200000 && newValue <= 500000,
+            "DustToken: gasForProcessing must be between 200,000 and 500,000"
+        );
+        require(
+            newValue != gasForProcessing,
+            "DustToken: Cannot update gasForProcessing to same value"
+        );
+        emit GasForProcessingUpdated(newValue, gasForProcessing);
+        gasForProcessing = newValue;
+    }
+
+    /// @notice Allows owner to updates time to claim rewards
+    /// @param claimWait New claim wait time
+    function updateClaimWait(uint256 claimWait) external onlyOwner {
+        dividendToken.updateClaimWait(claimWait);
+    }
+
+    /// @notice Checks the feeExcluded map to see if the account is excluded from fees
+    /// @param account Address to check
+    function isExcludedFromFees(address account) public view returns (bool) {
+        return feeExcluded[account];
+    }
+
+    /// @notice Checks the withdrawable amount of dividends from account
+    /// @param account Address to check
+    function withdrawableDividendOf(address account)
+        public
+        view
+        returns (uint256)
+    {
+        return dividendToken.withdrawableDividendOf(account);
+    }
 
     // DIVIDEND SETTERS/GETTERS
     function dividendTokenBalanceOf(address account)
