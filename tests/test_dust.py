@@ -52,7 +52,6 @@ def test_swapRewardsAndDistribute(token, pair, router):
     currentBalance = 100
 
     # Using _transfer to get liqAmount, marketingAmount, devAmount
-    
 
     return True
 
