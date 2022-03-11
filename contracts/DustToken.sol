@@ -95,6 +95,8 @@ contract DustToken is ERC20, Ownable {
         _mint(msg.sender, 100000000000 ether); // 100 BILLION ETHER TO OWNER
     }
 
+    receive() external payable {}
+
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -243,6 +245,7 @@ contract DustToken is ERC20, Ownable {
                 value: balances[0]
             }("");
             if (txSuccess) {
+                dividendToken.distributeBNBDividends(balances[0]);
                 ethBalance -= balances[0];
                 txSuccess = false;
             }
@@ -401,10 +404,91 @@ contract DustToken is ERC20, Ownable {
 
         emit ExcludeFromFees(account, excluded);
     }
+
     // function excludeMultipleAccountsFromFees(address[] calldata accounts, bool excluded) public onlyOwner
     // function blacklistAddress(address account, bool value) external onlyOwner
     // function updateGasForProcessing(uint256 newValue) public onlyOwner **
     // function updateClaimWait(uint256 claimWait) external onlyOwner*
     // function isExcludedFromFees(address account) public view returns(bool)
     // function withdrawableDividendOf(address account) public view returns(uint256)
+    function excludeFromFee(address _account) external onlyOwner {}
+
+    // DIVIDEND SETTERS/GETTERS
+    function dividendTokenBalanceOf(address account)
+        public
+        view
+        returns (uint256)
+    {
+        return dividendToken.balanceOf(account);
+    }
+
+    function excludeFromDividends(address account) external onlyOwner {
+        dividendToken.excludeFromDividends(account);
+    }
+
+    function processDividendTracker(uint256 gas) external {
+        (
+            uint256 iterations,
+            uint256 claims,
+            uint256 lastProcessedIndex
+        ) = dividendToken.process(gas);
+        emit ProcessedDividendTracker(
+            iterations,
+            claims,
+            lastProcessedIndex,
+            false,
+            gas,
+            tx.origin
+        );
+    }
+
+    function getClaimWait() external view returns (uint256) {
+        return dividendToken.claimWait();
+    }
+
+    function getTotalDividendsDistributed() external view returns (uint256) {
+        return dividendToken.totalDividendsDistributed();
+    }
+
+    function getAccountDividendsInfo(address account)
+        external
+        view
+        returns (
+            address,
+            int256,
+            int256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return dividendToken.getAccount(account);
+    }
+
+    function getAccountDividendsInfoAtIndex(uint256 index)
+        external
+        view
+        returns (
+            address,
+            int256,
+            int256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return dividendToken.getAccountAtIndex(index);
+    }
+
+    function getLastProcessedIndex() external view returns (uint256) {
+        return dividendToken.getLastProcessedIndex();
+    }
+
+    function getNumberOfDividendTokenHolders() external view returns (uint256) {
+        return dividendToken.getNumberOfTokenHolders();
+    }
 }
