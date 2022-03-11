@@ -49,7 +49,9 @@ def test_getPercentages(token, pair, router):
 
 def test_swapRewardsAndDistribute(token, pair, router):
     # Setting up
-    currentBalance = 100
+    percentages = [10, 25, 50, 100]
+    multiplier = 1
+    base = 100
 
     # Using _transfer to get liqAmount, marketingAmount, devAmount
 

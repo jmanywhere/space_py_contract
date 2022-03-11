@@ -46,7 +46,15 @@ contract DustToken is ERC20, Ownable {
         uint256 _marketing,
         uint256 _dev
     );
+    event UpdateDividendTracker(
+        address indexed newAddress,
+        address indexed oldAddress
+    );
     event UpdateMarketing(address _new, address _old);
+    event UpdateUniswapV2Router(
+        address indexed newAddress,
+        address indexed oldAddress
+    );
     event ProcessedDividendTracker(
         uint256 iterations,
         uint256 claims,
@@ -341,5 +349,62 @@ contract DustToken is ERC20, Ownable {
         dividendToken.processAccount(payable(msg.sender), false);
     }
 
-    function excludeFromFee(address _account) external onlyOwner {}
+    /// @notice Updates the dividend tracker's address
+    /// @param newAddress New dividend tracker address
+    function updateDividendTracker(address newAddress) public onlyOwner {
+        require(
+            newAddress != address(dividendTracker),
+            "DustToken: The dividend tracker already has that address"
+        );
+
+        BNBDividendTracker newDividendTracker = BNBDividendTracker(
+            payable(newAddress)
+        );
+
+        require(
+            newDividendTracker.owner() == address(this),
+            "DustToken: The new dividend tracker must be owned by the deployer of the contract"
+        );
+
+        newDividendTracker.excludeFromDividends(address(newDividendTracker));
+        newDividendTracker.excludeFromDividends(address(this));
+        newDividendTracker.excludeFromDividends(owner());
+        newDividendTracker.excludeFromDividends(address(uniswapV2Router));
+
+        emit UpdateDividendTracker(newAddress, address(dividendTracker));
+
+        dividendTracker = newDividendTracker;
+    }
+
+    /// @notice Updates the uniswapV2Router's address
+    /// @param newAddress New uniswapV2Router's address
+    function updateUniswapV2Router(address newAddress) public onlyOwner {
+        require(
+            newAddress != address(uniswapV2Router),
+            "DustToken: The router already has that address"
+        );
+        emit UpdateUniswapV2Router(newAddress, address(uniswapV2Router));
+        uniswapV2Router = IUniswapV2Router02(newAddress);
+        address _uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory())
+            .createPair(address(this), uniswapV2Router.WETH());
+        uniswapV2Pair = _uniswapV2Pair;
+    }
+
+    /// @notice Excludes address from fees
+    /// @param newAddress New uniswapV2Router's address
+    function excludeFromFees(address account, bool excluded) public onlyOwner {
+        require(
+            _isExcludedFromFees[account] != excluded,
+            "DustToken: Account is already the value of 'excluded'"
+        );
+        _isExcludedFromFees[account] = excluded;
+
+        emit ExcludeFromFees(account, excluded);
+    }
+    // function excludeMultipleAccountsFromFees(address[] calldata accounts, bool excluded) public onlyOwner
+    // function blacklistAddress(address account, bool value) external onlyOwner
+    // function updateGasForProcessing(uint256 newValue) public onlyOwner **
+    // function updateClaimWait(uint256 claimWait) external onlyOwner*
+    // function isExcludedFromFees(address account) public view returns(bool)
+    // function withdrawableDividendOf(address account) public view returns(uint256)
 }
