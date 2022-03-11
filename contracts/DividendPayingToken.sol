@@ -133,12 +133,11 @@ contract DividendPayingToken is
         override
         returns (uint256)
     {
-        uint256 magDivUserCorr = magnifiedDividendCorrections[_owner] >= 0
-            ? uint256(magnifiedDividendCorrections[_owner])
-            : 0;
-        return
-            (magnifiedDividendPerShare * balanceOf(_owner) + magDivUserCorr) /
-            magnitude;
+        uint256 magDivUserCorr = toUint256Safe(
+            toInt256Safe(magnifiedDividendPerShare * balanceOf(_owner)) +
+                magnifiedDividendCorrections[_owner]
+        );
+        return magDivUserCorr / magnitude;
     }
 
     /// @dev Internal function that transfer tokens from one address to another.
@@ -153,7 +152,7 @@ contract DividendPayingToken is
     ) internal virtual override {
         require(false);
 
-        int256 _magCorrection = int256(magnifiedDividendPerShare * value);
+        int256 _magCorrection = toInt256Safe(magnifiedDividendPerShare * value);
         magnifiedDividendCorrections[from] =
             magnifiedDividendCorrections[from] +
             _magCorrection;
@@ -171,7 +170,7 @@ contract DividendPayingToken is
 
         magnifiedDividendCorrections[account] =
             magnifiedDividendCorrections[account] -
-            int256(magnifiedDividendPerShare * value);
+            toInt256Safe(magnifiedDividendPerShare * value);
     }
 
     /// @dev Internal function that burns an amount of the token of a given account.
@@ -183,7 +182,7 @@ contract DividendPayingToken is
 
         magnifiedDividendCorrections[account] =
             magnifiedDividendCorrections[account] +
-            int256(magnifiedDividendPerShare * value);
+            toInt256Safe(magnifiedDividendPerShare * value);
     }
 
     function _setBalance(address account, uint256 newBalance) internal {
@@ -196,5 +195,17 @@ contract DividendPayingToken is
             uint256 burnAmount = currentBalance - newBalance;
             _burn(account, burnAmount);
         }
+    }
+
+    // INT SAFETY
+    function toUint256Safe(int256 a) internal pure returns (uint256) {
+        require(a >= 0);
+        return uint256(a);
+    }
+
+    function toInt256Safe(uint256 a) internal pure returns (int256) {
+        int256 b = int256(a);
+        require(b >= 0);
+        return b;
     }
 }

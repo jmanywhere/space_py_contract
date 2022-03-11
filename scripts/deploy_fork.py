@@ -1,7 +1,14 @@
 from datetime import datetime
-from brownie import accounts, DustToken, Contract, interface, network
+from brownie import (
+    accounts,
+    DustToken,
+    Contract,
+    interface,
+    network,
+    BNBDividendTracker,
+)
 from scripts.deploy import deploy_libraries
-from web3 import Web3
+from web3 import Web3, eth
 
 TEST_ENV = ["development", "bsc-main-fork"]
 
@@ -16,6 +23,9 @@ def deploy_token():
 
 def main():
     dust, pair, router = deploy_token()
+    dividendContract = interface.IDividendPayingToken(dust.dividendToken())
+    dividendTokenContract = interface.IERC20(dust.dividendToken())
+    dividendToken = accounts.at(dust.dividendToken(), force=True)
     bnb_eth = router.WETH()
     if network.show_active() in TEST_ENV:
         # need 220BNB to simulate same values
@@ -49,7 +59,7 @@ def main():
 
         initDustAc2 = dust.balanceOf(accounts[2].address)
         # senders balance
-        initBal = accounts[0].balance()
+        initBal = dividendToken.balance()
         # BUY
         amounts = router.swapExactETHForTokens(
             0,
@@ -58,15 +68,37 @@ def main():
             int((datetime.now() - datetime(1970, 1, 1)).total_seconds()) + 6000000000,
             {"from": accounts[2], "value": Web3.toWei("0.1", "ether")},
         )
+
         # CHECK TAX
-        ac1_balance = dust.balanceOf(accounts[2].address)
-        print(f"Account1 Balance: {ac1_balance}")
-        print(f"Diff {ac1_balance - initDustAc2}")
+        ac2_balance = dust.balanceOf(accounts[2].address)
+        print(f"Account1 Balance: {ac2_balance}")
+        print(f"Diff {ac2_balance - initDustAc2}")
+        ac1_eth_bal = accounts[1].balance()
 
         ##Transfer shouldn't incur taxes
-        dust.transfer(accounts[6], Web3.toWei("100", "ether"), {"from": accounts[3]})
+        tx1 = dust.transfer(
+            accounts[6], Web3.toWei("100", "ether"), {"from": accounts[3]}
+        )
+        tx1.wait(1)
+
+        print(
+            f"Dividends toClaim : {dividendContract.accumulativeDividendOf(accounts[1])}"
+        )
+        print(f"Balance Dividend: {dividendTokenContract.balanceOf(accounts[1])}")
+
         print(f"Expected: {dust.balanceOf(accounts[6])} == 100000000000000000000")
+
+        print(f"init BNB {initBal} endbal{dividendToken.balance()}")
+
+        print(f"Acc1 init {ac1_eth_bal} final {accounts[1].balance()}")
         # SELL
+        amounts2 = router.swapExactTokensForETH(
+            0,
+            [dust.address, bnb_eth],
+            accounts[1],
+            int((datetime.now() - datetime(1970, 1, 1)).total_seconds()) + 6000000000,
+            {"from": accounts[1], "value": Web3.toWei("0.1", "ether")},
+        )
         # CHECK TAX
         # add liquidity
         # remove liquidity

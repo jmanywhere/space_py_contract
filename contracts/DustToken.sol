@@ -87,6 +87,8 @@ contract DustToken is ERC20, Ownable {
         _mint(msg.sender, 100000000000 ether); // 100 BILLION ETHER TO OWNER
     }
 
+    receive() external payable {}
+
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -235,6 +237,7 @@ contract DustToken is ERC20, Ownable {
                 value: balances[0]
             }("");
             if (txSuccess) {
+                dividendToken.distributeBNBDividends(balances[0]);
                 ethBalance -= balances[0];
                 txSuccess = false;
             }
