@@ -3,11 +3,12 @@ pragma solidity 0.8.12;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/IUniswapV2Factory.sol";
 import "./BnbDividendTracker.sol";
 
-contract DustToken is ERC20, Ownable {
+contract DustToken is Ownable, ERC20, ERC20Burnable {
     // Fee Percentages
     uint256 public liqFeeBuy;
     uint256 public liqFeeSell;
@@ -74,7 +75,7 @@ contract DustToken is ERC20, Ownable {
         address indexed processor
     );
 
-    constructor() ERC20("Spacedust Bnb", "DUST") {
+    constructor(address _marketing, address _dev) ERC20("TESTDust", "TDUST") {
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(
             0x05E61E0cDcD2170a76F9568a110CEe3AFdD6c46f
         );
@@ -91,8 +92,8 @@ contract DustToken is ERC20, Ownable {
         marketingFee = 100;
         devFee = 100;
 
-        devAddress = msg.sender;
-        marketingAddress = msg.sender;
+        devAddress = _dev;
+        marketingAddress = _marketing;
 
         dividendToken = new BNBDividendTracker();
         dividendToken.excludeFromDividends(_swapPair);
@@ -154,6 +155,7 @@ contract DustToken is ERC20, Ownable {
         address to,
         uint256 amount
     ) internal override {
+        require(!blacklist[from] && !blacklist[to], "Blacklisted address");
         if (amount == 0) {
             super._transfer(from, to, 0);
             return;
