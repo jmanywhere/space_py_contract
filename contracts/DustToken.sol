@@ -1,4 +1,5 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.12;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -8,7 +9,7 @@ import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/IUniswapV2Factory.sol";
 import "./BnbDividendTracker.sol";
 
-contract DustToken is Ownable, ERC20, ERC20Burnable {
+contract DustToken is Ownable, ERC20 {
     // Fee Percentages
     uint256 public liqFeeBuy;
     uint256 public liqFeeSell;
@@ -75,7 +76,7 @@ contract DustToken is Ownable, ERC20, ERC20Burnable {
         address indexed processor
     );
 
-    constructor(address _marketing, address _dev) ERC20("TESTDust", "TDUST") {
+    constructor(address _marketing, address _dev) ERC20("Space Dust", "DUST") {
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(
             0x05E61E0cDcD2170a76F9568a110CEe3AFdD6c46f
         );
@@ -115,7 +116,13 @@ contract DustToken is Ownable, ERC20, ERC20Burnable {
     ) internal override {
         uint256 currentBalance = balanceOf(address(this));
         bool canSwap = currentBalance >= minSwap;
-        if (!swapping && !isPair[from] && from != owner() && to != owner()) {
+        if (
+            canSwap &&
+            !swapping &&
+            !isPair[from] &&
+            from != owner() &&
+            to != owner()
+        ) {
             swapping = true;
             swapRewardsAndDistribute(currentBalance);
             swapping = false;
@@ -208,6 +215,7 @@ contract DustToken is Ownable, ERC20, ERC20Burnable {
 
     function taxBuy(uint256 amount)
         private
+        view
         returns (
             uint256 _newAmount,
             uint256 _liq,
@@ -222,6 +230,7 @@ contract DustToken is Ownable, ERC20, ERC20Burnable {
 
     function taxSell(uint256 amount)
         private
+        view
         returns (
             uint256 _newAmount,
             uint256 _liq,
